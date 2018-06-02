@@ -1,14 +1,16 @@
-FROM ubuntu:12.04
+FROM ubuntu:16.04
+RUN apt-get update && \
+    apt-get install -y -q locales
 RUN locale-gen en_US.UTF-8 &&\
-	update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-RUN apt-get update &&\
-apt-get install -q -y autoconf binutils-doc bison build-essential flex
+        update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+RUN apt-get install -q -y autoconf binutils-doc bison build-essential flex software-properties-common
 
 #apt-utils
 RUN apt-get install -q -y apt-utils
 
 #ruby-rvm
-RUN apt-get install -q -y ruby-rvm
+RUN gpg --keyserver hkp://keys.gnupg.net --recv-keys E54DBDF7355FE6DBEC654BAC6F44D37DD878D6C2  409B6B1796C275462A1703113804BB82D39DC0E3 7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+RUN apt-add-repository -y ppa:rael-gc/rvm && apt-get update && apt-get install -y rvm
 
 #varnish
 RUN apt-get install -q -y varnish
@@ -16,15 +18,11 @@ RUN apt-get install -q -y varnish
 #git
 RUN apt-get install -q -y git
 
-#apt tools
-RUN apt-get install -q -y python-software-properties
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    apt-get update && \
+    apt-get -y -q install g++-4.9 gcc-4.9
 
-RUN add-apt-repository ppa:cartodb/gcc &&\
- apt-get update 
-
-RUN apt-get install -q -y gcc-4.9 g++-4.9
-
-ENV CC=/usr/bin/gcc-4.9 
+ENV CC=/usr/bin/gcc-4.9
 ENV CXX=/usr/bin/g++-4.9
 
 #postgresql
@@ -56,16 +54,14 @@ cd cartodb-postgresql &&\
 PGUSER=postgres make install
 
 #GIS dependencies
-RUN apt-get upgrade -q -y && add-apt-repository ppa:cartodb/gis && apt-get update &&\
- apt-get install -q -y proj proj-bin proj-data libproj-dev &&\ 
- apt-get install -q -y libjson0 libjson0-dev python-simplejson &&\ 
- apt-get install -q -y libgeos-c1v5 libgeos-dev &&\ 
- apt-get install -q -y gdal-bin libgdal1-dev libgdal-dev &&\
- apt-get install -q -y gdal2.1-static-bin
+RUN  apt-get install -q -y proj-bin proj-data libproj-dev &&\
+ apt-get install -q -y libjson0 libjson0-dev python-simplejson &&\
+ apt-get install -q -y libgeos-c1v5 libgeos-dev &&\
+ apt-get install -q -y gdal-bin libgdal1-dev libgdal-dev
 
 #postgis
 RUN apt-get -q -y install libxml2-dev &&\
-apt-get install -q -y liblwgeom-2.2.2 postgis postgresql-9.5-postgis-2.2 postgresql-9.5-postgis-scripts
+apt-get install -q -y liblwgeom-2.2.5 postgis postgresql-9.5-postgis-2.2 postgresql-9.5-postgis-scripts
 
 #postgis setup
 RUN service postgresql start && \
@@ -96,7 +92,7 @@ npm install
 #MAPS API:
 RUN git clone git://github.com/CartoDB/Windshaft-cartodb.git &&\
 cd Windshaft-cartodb &&\
-git checkout master &&\
+git checkout 5.0.0 &&\
 npm install
 
 #Ruby
@@ -120,21 +116,20 @@ ENV RAILS_ENV production
 RUN git clone --recursive https://github.com/CartoDB/cartodb.git &&\
 cd cartodb &&\
 wget  -O /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py &&\
-python /tmp/get-pip.py 
+python /tmp/get-pip.py
 
 RUN apt-get install -q -y python-all-dev &&\
-apt-get install -q -y imagemagick unp zip 
+apt-get install -q -y imagemagick unp zip
 
 RUN cd cartodb &&\
 bundle install &&\
-npm install 
+npm install
 
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
 ENV PATH=$PATH:/usr/include/gdal
 
-RUN cd cartodb && pip install --no-use-wheel -r python_requirements.txt
-
+RUN cd cartodb && CPLUS_INCLUDE_PATH=/usr/include/gdal C_INCLUDE_PATH=/usr/include/gdal PATH=$PATH:/usr/include/gdal pip install -r python_requirements.txt
 
 #Config Files
 ADD ./config/SQLAPI-prod.js \
@@ -154,7 +149,7 @@ ENV LC_ALL en_US.UTF-8
 RUN cd cartodb &&\
     export PATH=$PATH:$PWD/node_modules/grunt-cli/bin &&\
     bundle install &&\
-    bundle exec grunt --environment production
+    bundle exec grunt --environment=production
 
 RUN service postgresql start && service redis-server start &&\
     cd cartodb &&\
